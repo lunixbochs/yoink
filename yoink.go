@@ -31,7 +31,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("[%d] attached to root sshd\n", sshd)
+	fmt.Printf("[+] started with pid [%d]\n", os.Getpid())
+	fmt.Printf("[+] attaching to root sshd at [%d]\n", sshd)
 	tracer.ExecFilter(func(e *ghost.Event) (bool, bool) {
 		c := e.Syscall.(*call.Execve)
 		// sshd
