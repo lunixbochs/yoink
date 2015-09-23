@@ -10,6 +10,7 @@ type proc struct {
 	Pid    int
 	Login  []string
 	Shell  bool
+	Top    bool
 	Logger *log.Logger
 
 	buf       bytes.Buffer

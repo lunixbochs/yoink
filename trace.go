@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"log"
 	"strings"
@@ -79,10 +80,21 @@ func trace(sshd int, logger *log.Logger, credLog *log.Logger) error {
 			switch sc := sc.(type) {
 			case *call.Read:
 				if sc.Fd >= 8 {
-					proc.Stdout(sc.Data)
+					data := sc.Data
+					topEnd := []byte("\x1b[?12l\x1b[?25h\x1b[K")
+					if bytes.Contains(data, []byte("\x1b[mtop")) {
+						proc.Top = true
+					} else if proc.Top && bytes.Contains(data, topEnd) {
+						proc.Top = false
+						split := bytes.Split(data, topEnd)
+						data = split[len(split)-1]
+					}
+					if !proc.Top {
+						proc.Stdout(data)
+					}
 				}
 			case *call.Write:
-				if sc.Fd >= 7 {
+				if sc.Fd >= 7 && !proc.Top {
 					proc.Stdin(sc.Data)
 				}
 			}
