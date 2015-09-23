@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"./ghostrace/ghost/process"
 )
@@ -25,6 +26,17 @@ func main() {
 	tail := fs.Bool("tail", false, "tail log file(s) (default title changes to `vi`)")
 	fs.Parse(os.Args[1:])
 	log.SetFlags(0)
+
+	proc, _ := process.FindPid(os.Getpid())
+	if proc != nil {
+		parent := proc.Parent()
+		if parent != nil {
+			cmdline := parent.Cmdline()
+			if len(cmdline) > 0 && strings.Contains(cmdline[0], "sudo") {
+				log.Fatal("[-] cowardly refusing to leak command line via sudo")
+			}
+		}
+	}
 
 	if (*dump || *tail) && *title == defaultTitle {
 		*title = "cat"
