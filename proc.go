@@ -21,8 +21,7 @@ func (p *proc) LoginData(data []byte) {
 }
 
 func (p *proc) Stdin(data []byte) {
-	if len(data) == 1 {
-		b := data[0]
+	for _, b := range data {
 		if b != '\r' && b != '\n' {
 			p.lastStdin = append(p.lastStdin, b)
 		}
