@@ -11,6 +11,7 @@ import (
 )
 
 func run() error {
+	// find sshd
 	parentSshd, err := process.Filter(func(p process.Process) bool {
 		if isSshd(p) {
 			return isSshd(p) && !isSshd(p.Parent())
@@ -24,6 +25,7 @@ func run() error {
 		return fmt.Errorf("need (1) root sshd, found (%d)", len(parentSshd))
 	}
 	sshd := parentSshd[0].Pid()
+	// initialize ghostrace
 	tracer := ghost.NewTracer()
 	trace, err := tracer.Trace(sshd)
 	if err != nil {
@@ -58,14 +60,18 @@ func run() error {
 		// unknown process (like scp)
 		return false, false
 	})
+	// loop until interrupted, or the target process exits (unlikely in the case of sshd)
 	for event := range trace {
-		// TODO: need an exit() event if we're going to run forever
-		// so we don't get confused about recycled pids
-		proc := getProc(event.Process.Pid())
-
+		pid := event.Process.Pid()
+		proc := getProc(pid)
+		if event.Exit && proc.Shell {
+			proc.Exit()
+			unlinkProc(pid)
+			continue
+		}
 		var sc interface{} = event.Syscall
 		if !proc.Shell {
-			// preauth
+			// preauth, look for login IO
 			parent := event.Process.Parent()
 			if parent != nil {
 				pproc := getProc(parent.Pid())
@@ -78,7 +84,7 @@ func run() error {
 				}
 			}
 		} else {
-			// postauth
+			// postauth, pass all IO to be logged
 			switch sc := sc.(type) {
 			case *call.Read:
 				if sc.Fd == 11 {

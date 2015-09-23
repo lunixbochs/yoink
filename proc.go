@@ -59,15 +59,27 @@ func (p *proc) Stdout(data []byte) {
 }
 
 func (p *proc) Flush() {
-	p.logline(p.buf.Bytes())
+	line := p.buf.Bytes()
+	if len(line) > 0 {
+		p.logline(p.buf.Bytes())
+	}
+}
+
+func (p *proc) Exit() {
+	p.Flush()
+	p.lograw("logout")
 }
 
 func (p *proc) LogLogin(login []string) {
-	out := fmt.Sprintf("[%d] successful login with %s\n", p.Pid, strings.Join(login, ", "))
-	p.Logger.Write([]byte(out))
+	out := fmt.Sprintf("successful login as: %s", strings.Join(login, ", "))
+	p.lograw(out)
 }
 
 func (p *proc) logline(line []byte) {
-	out := fmt.Sprintf("[%d] %#v\n", p.Pid, string(line))
+	p.lograw(fmt.Sprintf("%#v", string(line)))
+}
+
+func (p *proc) lograw(line string) {
+	out := fmt.Sprintf("[%d] %s\n", p.Pid, line)
 	p.Logger.Write([]byte(out))
 }
