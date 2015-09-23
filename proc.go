@@ -69,8 +69,12 @@ func (p *proc) Exit() {
 	p.Logger.Printf("[%d] <logout>", p.Pid)
 }
 
-func (p *proc) LogLogin(login []string) {
-	p.Logger.Printf("[%d] <login as: %s>", p.Pid, strings.Join(login, ", "))
+func (p *proc) LogLogin(login []string, success bool) {
+	if success {
+		p.Logger.Printf("[%d] <login as: %s>", p.Pid, strings.Join(login, ", "))
+	} else {
+		p.Logger.Printf("[%d] <login attempt: %s>", p.Pid, strings.Join(login, ", "))
+	}
 }
 
 func (p *proc) logline(line []byte) {

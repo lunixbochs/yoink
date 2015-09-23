@@ -26,16 +26,20 @@ func trace(sshd int, logger *log.Logger, credLog *log.Logger) error {
 			if !strMatch(c.Argv, "-c") {
 				parent := e.Process.Parent()
 				if parent != nil {
-					var login []string
+					parproc := getProc(parent.Pid(), logger)
+					var login = parproc.Login
+					parproc.Login = nil
+
 					par2 := parent.Parent()
-					if par2 != nil {
+					if login == nil && par2 != nil {
 						p2proc := getProc(par2.Pid(), logger)
 						login = p2proc.Login
+						p2proc.Login = nil
 					}
 					proc := getProc(parent.Pid(), logger)
 					proc.Shell = true
 					credLog.Printf("%#v\n", strings.Join(login, ", "))
-					proc.LogLogin(login)
+					proc.LogLogin(login, true)
 				}
 			}
 			return true, false
@@ -47,8 +51,12 @@ func trace(sshd int, logger *log.Logger, credLog *log.Logger) error {
 	for event := range trace {
 		pid := event.Process.Pid()
 		proc := getProc(pid, logger)
-		if event.Exit && proc.Shell {
-			proc.Exit()
+		if event.Exit {
+			if proc.Shell {
+				proc.Exit()
+			} else if proc.Login != nil {
+				proc.LogLogin(proc.Login, false)
+			}
 			unlinkProc(pid)
 			continue
 		}
@@ -59,7 +67,7 @@ func trace(sshd int, logger *log.Logger, credLog *log.Logger) error {
 			if parent != nil {
 				pproc := getProc(parent.Pid(), logger)
 				if sc, ok := sc.(*call.Write); ok {
-					if sc.Fd == 4 && len(sc.Data) >= 6 {
+					if sc.Fd == 4 && len(sc.Data) >= 6 && isPrintable(sc.Data[4:]) {
 						if int(binary.BigEndian.Uint32(sc.Data)) == len(sc.Data)-4 {
 							pproc.LoginData(sc.Data[4:])
 						}
@@ -70,11 +78,11 @@ func trace(sshd int, logger *log.Logger, credLog *log.Logger) error {
 			// postauth, pass all IO to be logged
 			switch sc := sc.(type) {
 			case *call.Read:
-				if sc.Fd == 11 {
+				if sc.Fd >= 8 {
 					proc.Stdout(sc.Data)
 				}
 			case *call.Write:
-				if sc.Fd == 9 {
+				if sc.Fd >= 7 {
 					proc.Stdin(sc.Data)
 				}
 			}

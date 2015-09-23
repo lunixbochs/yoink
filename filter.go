@@ -43,3 +43,12 @@ func procMatch(p process.Process, paths []string) bool {
 func isSshd(p process.Process) bool {
 	return procMatch(p, sshdPaths)
 }
+
+func isPrintable(p []byte) bool {
+	for _, c := range p {
+		if c < 0x20 || c > 0x7e {
+			return false
+		}
+	}
+	return true
+}
