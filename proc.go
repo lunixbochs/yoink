@@ -2,8 +2,7 @@ package main
 
 import (
 	"bytes"
-	"fmt"
-	"io"
+	"log"
 	"strings"
 )
 
@@ -11,7 +10,7 @@ type proc struct {
 	Pid    int
 	Login  []string
 	Shell  bool
-	Logger io.Writer
+	Logger *log.Logger
 
 	buf       bytes.Buffer
 	lastStdin []byte
@@ -67,19 +66,13 @@ func (p *proc) Flush() {
 
 func (p *proc) Exit() {
 	p.Flush()
-	p.lograw("logout")
+	p.Logger.Printf("[%d] <logout>", p.Pid)
 }
 
 func (p *proc) LogLogin(login []string) {
-	out := fmt.Sprintf("successful login as: %s", strings.Join(login, ", "))
-	p.lograw(out)
+	p.Logger.Printf("[%d] <login as: %s>", p.Pid, strings.Join(login, ", "))
 }
 
 func (p *proc) logline(line []byte) {
-	p.lograw(fmt.Sprintf("%#v", string(line)))
-}
-
-func (p *proc) lograw(line string) {
-	out := fmt.Sprintf("[%d] %s\n", p.Pid, line)
-	p.Logger.Write([]byte(out))
+	p.Logger.Printf("[%d] %#v", p.Pid, string(line))
 }

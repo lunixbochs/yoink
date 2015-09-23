@@ -1,20 +1,20 @@
 package main
 
 import (
-	"os"
+	"log"
 	"sync"
 )
 
 var trackMap = make(map[int]*proc)
 var trackLock sync.Mutex
 
-func getProc(pid int) *proc {
+func getProc(pid int, logger *log.Logger) *proc {
 	trackLock.Lock()
 	defer trackLock.Unlock()
 	if p, ok := trackMap[pid]; ok {
 		return p
 	}
-	p := &proc{Pid: pid, Logger: os.Stdout}
+	p := &proc{Pid: pid, Logger: logger}
 	trackMap[pid] = p
 	return p
 }
