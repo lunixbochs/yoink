@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"log"
 	"strings"
+
+	"github.com/lunixbochs/vtclean"
 )
 
 type proc struct {
@@ -64,5 +66,7 @@ func (p *proc) LogLogin(login []string, success bool) {
 }
 
 func (p *proc) logline(line []byte) {
-	p.Logger.Printf("[%d] %#v", p.Pid, string(line))
+	sline := vtclean.Clean(string(line), true)
+	sline = strings.Replace(sline, "\n", "\\n", -1)
+	p.Logger.Printf("[%d] %s", p.Pid, sline)
 }
