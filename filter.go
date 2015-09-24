@@ -1,7 +1,7 @@
 package main
 
 import (
-	"./ghostrace/ghost/process"
+	"github.com/lunixbochs/ghostrace/ghost/process"
 )
 
 var sshdPaths = []string{

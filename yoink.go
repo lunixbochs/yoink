@@ -3,14 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/lunixbochs/ghostrace/ghost/process"
 	"github.com/lunixbochs/gspt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
-
-	"./ghostrace/ghost/process"
 )
 
 var defaultTitle = "/usr/sbin/sshd -D"

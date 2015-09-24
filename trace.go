@@ -3,11 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/lunixbochs/ghostrace/ghost"
+	"github.com/lunixbochs/ghostrace/ghost/sys/call"
 	"log"
 	"strings"
-
-	"./ghostrace/ghost"
-	"./ghostrace/ghost/sys/call"
 )
 
 func trace(sshd int, logger *log.Logger, credLog *log.Logger) error {
