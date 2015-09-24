@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/lunixbochs/ghostrace/ghost/process"
+	"strings"
 )
 
 var sshdPaths = []string{
@@ -51,4 +52,9 @@ func isPrintable(p []byte) bool {
 		}
 	}
 	return true
+}
+
+func shellEscape(s string) string {
+	s = strings.Replace(s, `'`, `'"'"'`, -1)
+	return `'` + s + `'`
 }
