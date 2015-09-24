@@ -70,7 +70,7 @@ func sshKeyboardAuth(user, instruction string, questions []string, echos []bool)
 	var ans string
 	for i, q := range questions {
 		fmt.Printf(q)
-		if echos[i] {
+		if !echos[i] {
 			var bans []byte
 			bans, err = readPass(0)
 			ans = string(bans)
@@ -108,14 +108,14 @@ func openLog(path string) (io.WriteCloser, error) {
 			Auth: []ssh.AuthMethod{ssh.KeyboardInteractive(sshKeyboardAuth)},
 		}
 		if pass != "" {
-			config.Auth = append(config.Auth, ssh.Password(pass[1:]))
+			config.Auth = append([]ssh.AuthMethod{ssh.Password(pass[1:])}, config.Auth...)
 		} else {
-			config.Auth = append(config.Auth, ssh.PasswordCallback(func() (string, error) {
+			config.Auth = append([]ssh.AuthMethod{ssh.PasswordCallback(func() (string, error) {
 				fmt.Printf("Password: ")
 				pass, err := readPass(0)
 				fmt.Println()
 				return string(pass), err
-			}))
+			})}, config.Auth...)
 		}
 		client, err := ssh.Dial("tcp", net.JoinHostPort(host, port), &config)
 		if err != nil {
