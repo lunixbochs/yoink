@@ -14,7 +14,7 @@ type proc struct {
 	Logger *log.Logger
 
 	buf       bytes.Buffer
-	lastStdin []byte
+	lastStdin [][]byte
 }
 
 func (p *proc) LoginData(data []byte) {
@@ -22,30 +22,16 @@ func (p *proc) LoginData(data []byte) {
 }
 
 func (p *proc) Stdin(data []byte) {
-	for _, b := range data {
-		if b != '\r' && b != '\n' {
-			p.lastStdin = append(p.lastStdin, b)
-		}
-	}
+	p.lastStdin = append(p.lastStdin, bytes.Trim(data, "\r\n"))
 }
 
 func (p *proc) Stdout(data []byte) {
-	if len(p.lastStdin) >= 3 {
-		p.buf.Write(p.lastStdin)
-		p.lastStdin = nil
-	} else {
-		max := 0
-		// could be improved (sequential scan?)
-		// but does its job fairly well as is
-		for i, v := range p.lastStdin {
-			if bytes.Contains(data, []byte{v}) {
-				max = i + 1
-			} else {
-				break
-			}
+	if len(p.lastStdin) > 1 {
+		for _, v := range p.lastStdin {
+			p.buf.Write(v)
 		}
-		p.lastStdin = p.lastStdin[max:]
 	}
+	p.lastStdin = nil
 	p.buf.Write(data)
 	if bytes.Contains(p.buf.Bytes(), []byte("\r\n")) {
 		split := bytes.Split(p.buf.Bytes(), []byte("\r\n"))
